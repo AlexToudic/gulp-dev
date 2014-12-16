@@ -32,25 +32,26 @@ function processFileContents(fileContents, inDevelopmentMode) {
     data,
     '<!-- dev -->',
     '<!-- /dev -->',
-    /* commentOutContentsInBlock */ !inDevelopmentMode);
+    !inDevelopmentMode);
 
   data = processFileContentsForBlock(
     data,
     '<!-- !dev -->',
     '<!-- /!dev -->',
-    /* commentOutContentsInBlock */ inDevelopmentMode);
+    inDevelopmentMode);
 
-  return new Buffer(data);
+  return new Buffer(data, 'utf-8');
 }
 
 function processFileContentsForBlock(
   fileContents,
   startBlockComment,
   endBlockComment,
-  commentOutContentsInBlock) {
+  shouldBeCommented) {
   var i;
 
   var stripHtmlCommentRegex = /<!--(.*)-->/;
+  var spacesRegex = /[\t\s]/;
 
   var inBlock = false;
   var lines = fileContents.split('\n');
@@ -58,25 +59,24 @@ function processFileContentsForBlock(
   for(i = 0; i < lines.length; i++) {
     var line = lines[i];
 
-    if(line === endBlockComment) {
-     inBlock = false;
+    if (line.indexOf(startBlockComment) > -1) {
+      inBlock = true;
     }
 
-    if(inBlock) {
+    else if (line.indexOf(endBlockComment) > -1) {
+      inBlock = false;
+    }
+
+    else if(inBlock) {
       var match = line.match(stripHtmlCommentRegex);
-      if(!commentOutContentsInBlock) {
-        if(match) {
-          lines[i] = match[1].trim();
-        }
-      } else {
-        if(!match) { //if isn't already commented out
-          lines[i] = '<!-- {0} -->'.replace('{0}', line);
-        }
-      }
-    }
 
-    if(line === startBlockComment || line === endBlockComment) {
-      inBlock = line === startBlockComment;
+      if(!shouldBeCommented) {
+        if(match) {
+          lines[i] = line.replace(match[0], match[1]);
+        }
+      } else if(!match) {
+          lines[i] = (line.match(spacesRegex) + '<!-- {0} -->').replace('{0}', line.trim());
+      }
     }
   }
 
